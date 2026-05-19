@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #9b59b6;
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 20px;
+        }
+        .info-section {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+        .info-section h3 {
+            margin-top: 0;
+            color: #9b59b6;
+            border-bottom: 2px solid #9b59b6;
+            padding-bottom: 10px;
+        }
+        .info-row {
+            padding: 8px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-row strong {
+            color: #2c3e50;
+            min-width: 120px;
+            display: inline-block;
+        }
+        .url-link {
+            word-break: break-all;
+            color: #3498db;
+            font-size: 12px;
+        }
+        .action-button {
+            background-color: #9b59b6;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        .footer {
+            background-color: #ecf0f1;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-radius: 0 0 8px 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>New Seller Application</h1>
+        </div>
+        
+        <div class="content">
+            <p>A new seller has registered on Waste Not and is awaiting verification.</p>
+            
+            <div class="info-section">
+                <h3>Personal Information</h3>
+                <div class="info-row">
+                    <strong>Name:</strong> {{ first_name }} {{ last_name }}
+                </div>
+                <div class="info-row">
+                    <strong>Email:</strong> {{ email }}
+                </div>
+                <div class="info-row">
+                    <strong>Phone:</strong> {{ phone }}
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <h3>Vehicle & License Information</h3>
+                <div class="info-row">
+                    <strong>Vehicle Type:</strong> {{ vehicle_type }}
+                </div>
+                <div class="info-row">
+                    <strong>License Number:</strong> {{ license_number }}
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <h3>Documentation</h3>
+                <div class="info-row">
+                    <strong>Selfie:</strong><br>
+                    <a href="{{ selfie_url }}" class="url-link" target="_blank">View Image</a>
+                </div>
+                <div class="info-row">
+                    <strong>National ID (Front):</strong><br>
+                    <a href="{{ national_id_front_url }}" class="url-link" target="_blank">View Image</a>
+                </div>
+                <div class="info-row">
+                    <strong>National ID (Back):</strong><br>
+                    <a href="{{ national_id_back_url }}" class="url-link" target="_blank">View Image</a>
+                </div>
+            </div>
+            
+            <p><strong>Next Steps:</strong></p>
+            <ul>
+                <li>Review the applicant's documents and information</li>
+                <li>Verify the license number is valid</li>
+                <li>Approve or reject the application through the admin dashboard</li>
+                <li>The applicant will be notified of your decision</li>
+            </ul>
+            
+            <p>Please review this application at your earliest convenience.</p>
+            
+            <p>Best regards,<br>
+            <strong>Waste Not System</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; 2024 Waste Not. All rights reserved.</p>
+            <p>This is an automated email. Please do not reply directly to this message.</p>
+        </div>
+    </div>
+</body>
+</html>
