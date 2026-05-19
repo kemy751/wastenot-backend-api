@@ -2,6 +2,7 @@ import os
 from datetime import timedelta
 
 from dotenv import load_dotenv
+from sqlalchemy.engine import URL
 
 
 load_dotenv()
@@ -27,11 +28,13 @@ def get_database_uri():
     port = os.getenv("POSTGRES_PORT", "5432")
     database = os.getenv("POSTGRES_DATABASE", "wastenot")
 
-    return (
-        f"postgresql+psycopg2://"
-        f"{username}:{password}@"
-        f"{host}:{port}/"
-        f"{database}"
+    return URL.create(
+        "postgresql+psycopg2",
+        username=username,
+        password=password,
+        host=host,
+        port=int(port),
+        database=database,
     )
 
 class Config:
