@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #3498db;
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 20px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 4px;
+            background-color: #fff3cd;
+            color: #856404;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .next-steps {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .next-steps h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+        .next-steps ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .next-steps li {
+            margin: 8px 0;
+        }
+        .footer {
+            background-color: #ecf0f1;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-radius: 0 0 8px 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Application Received!</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hello <strong>{{ first_name }}</strong>,</p>
+            
+            <p>Thank you for applying to become a delivery staff member with Waste Not! We're excited to work with you in our mission to reduce waste and promote sustainability.</p>
+            
+            <div>
+                <p><strong>Application Status:</strong></p>
+                <div class="status-badge">Under Review</div>
+                <p>Your application has been received and is currently under review by our admin team. This typically takes 2-3 business days.</p>
+            </div>
+            
+            <div class="next-steps">
+                <h3>What's Next?</h3>
+                <ol>
+                    <li>Our team will review your documents and information</li>
+                    <li>We'll verify your credentials and vehicle information</li>
+                    <li>You'll receive an email notification once your application has been approved</li>
+                    <li>Upon approval, you can start accepting deliveries</li>
+                </ol>
+            </div>
+            
+            <p>If you have any questions about the application process, please reach out to our support team.</p>
+            
+            <p>Best regards,<br>
+            <strong>The Waste Not Team</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; 2024 Waste Not. All rights reserved.</p>
+            <p>This is an automated email. Please do not reply directly to this message.</p>
+        </div>
+    </div>
+</body>
+</html>
