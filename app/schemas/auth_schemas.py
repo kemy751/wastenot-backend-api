@@ -1,13 +1,8 @@
-"""
-Authentication-related validation schemas using marshmallow.
-"""
-
 from marshmallow import Schema, fields, validates, ValidationError
 from app.models import UserStatus, UserRole
 
 
 class SignupSchema(Schema):
-    """Schema for user registration."""
     
     name = fields.String(required=True, validate=lambda x: len(x) >= 1)
     email = fields.Email(required=True)
@@ -41,38 +36,32 @@ class ChangePasswordSchema(Schema):
     
     @validates("new_password")
     def validate_new_password(self, value):
-        """Password must contain at least one digit."""
         if not any(char.isdigit() for char in value):
             raise ValidationError("Password must contain at least one digit.")
 
 
 class ForgotPasswordSchema(Schema):
-    """Schema for forgot password request."""
     
     email = fields.Email(required=True)
 
 
 class ResetPasswordSchema(Schema):
-    """Schema for password reset."""
     
     reset_token = fields.String(required=True)
     new_password = fields.String(required=True, validate=lambda x: len(x) >= 6)
     
     @validates("new_password")
     def validate_new_password(self, value):
-        """Password must contain at least one digit."""
         if not any(char.isdigit() for char in value):
             raise ValidationError("Password must contain at least one digit.")
 
 
 class RefreshTokenSchema(Schema):
-    """Schema for token refresh."""
     
     refresh_token = fields.String(required=True)
 
 
 class UpdateUserStatusSchema(Schema):
-    """Schema for updating user status."""
     
     email = fields.Email(required=True)
     status = fields.String(

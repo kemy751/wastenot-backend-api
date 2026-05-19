@@ -1,8 +1,3 @@
-"""
-Flask extensions initialization.
-Centralizes instantiation of all Flask extensions used throughout the application.
-"""
-
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate

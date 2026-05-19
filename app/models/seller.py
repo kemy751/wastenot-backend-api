@@ -1,22 +1,11 @@
-"""
-Seller profile model (renamed from delivery_staff.py).
-"""
-
 import uuid
 from datetime import datetime
 from app.extensions import db
 
 
 class Seller(db.Model):
-    """
-    Seller profile model.
-
-    This retains the original database table name for compatibility
-    with existing migrations and preserves all fields used for
-    verification/documentation.
-    """
-
-    __tablename__ = "delivery_staff"
+  
+    __tablename__ = "seller"
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(db.String(36), db.ForeignKey("users.id"), unique=True, nullable=False, index=True)
