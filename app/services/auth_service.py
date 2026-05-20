@@ -239,7 +239,10 @@ class AuthService:
             raise ValueError("Invalid email or password")
         
         # Generate JWT access token
-        access_token = create_access_token(identity=user.id)
+        access_token = create_access_token(
+        identity=str(user.id), 
+        additional_claims={"role": user.role} # Injects "admin", "seller", or "buyer" into the token
+)
         
         # Generate and store refresh token
         refresh_token_string = secrets.token_urlsafe(64)
