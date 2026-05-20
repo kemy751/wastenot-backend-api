@@ -1,14 +1,17 @@
+# app/services.py
 import logging
 import uuid
 from typing import Union, List, Optional
+from datetime import datetime
 from app.extensions import db
-from app.models import Product, Listing, ListingInterest, User  # Fixed: Imported User model
+from app.models import Product, Listing, ListingInterest, User, ListingStatus, InterestStatus 
 
 # Initialize module-specific logger
 logger = logging.getLogger(__name__)
 
 # Type alias for cleaner, safer flexible primary key handling
 IdType = Union[uuid.UUID, str]
+
 
 class ProductService:
     @staticmethod
@@ -28,8 +31,7 @@ class ProductService:
     @staticmethod
     def get_by_id(product_id: IdType) -> Optional[Product]:
         logger.info(f"Fetching product with ID: {product_id}")
-        # Fixed: Converted to db.session.get() to comply with modern SQLAlchemy standards
-        return db.session.get(Product, product_id)
+        return db.session.get(Product, str(product_id))
 
     @staticmethod
     def get_all() -> List[Product]:
@@ -92,7 +94,7 @@ class ListingService:
     @staticmethod
     def get_by_id(listing_id: IdType) -> Optional[Listing]:
         logger.info(f"Fetching listing with ID: {listing_id}")
-        return db.session.get(Listing, listing_id)
+        return db.session.get(Listing, str(listing_id))
 
     @staticmethod
     def get_all() -> List[Listing]:
@@ -109,7 +111,10 @@ class ListingService:
             
         try:
             for key, value in data.items():
-                setattr(listing, key, value)
+                if key == "status" and isinstance(value, str):
+                    setattr(listing, key, ListingStatus[value.upper()])
+                else:
+                    setattr(listing, key, value)
             db.session.commit()
             logger.info(f"Successfully updated listing ID: {listing_id}")
             return listing
@@ -136,6 +141,40 @@ class ListingService:
             logger.error(f"Failed to delete listing ID {listing_id}. Error: {str(e)}")
             raise e
 
+    @staticmethod
+    def get_listings_by_seller(seller_id: IdType, status: Optional[str] = None) -> List[Listing]:
+        logger.info(f"Fetching listings for seller {seller_id} with status filter: {status}")
+        clean_seller_id = str(seller_id).lower()
+        query = Listing.query.filter_by(seller_id=clean_seller_id)
+        
+        if status:
+            try:
+                status_enum = ListingStatus[status.upper()] if isinstance(status, str) else status
+                query = query.filter_by(status=status_enum)
+            except KeyError:
+                logger.error(f"Invalid listing status filter string provided: {status}")
+                return []
+                
+        return query.order_by(Listing.created_at.desc()).all()
+    
+    @staticmethod
+    def get_by_status(status: Union[ListingStatus, str]) -> List[Listing]:
+        """
+        Fetches all global listings filtered by a specific marketplace status.
+        """
+        logger.info(f"Fetching all listings with status: {status}")
+        try:
+            if isinstance(status, str):
+                status_enum = ListingStatus[status.upper()]
+            else:
+                status_enum = status
+                
+            return Listing.query.filter_by(status=status_enum)\
+                                .order_by(Listing.created_at.desc()).all()
+        except KeyError:
+            logger.error(f"Invalid listing status string provided: {status}")
+            return []
+
 
 class ListingInterestService:
     @staticmethod
@@ -143,14 +182,11 @@ class ListingInterestService:
         logger.info(f"Buyer ID {data.get('buyer_id')} expressing interest in listing ID {data.get('listing_id')}")
         try:
             interest = ListingInterest(**data)
-            db.session.add(interest)
-            db.session.commit()
             
-            # Context Hydration (Using modern db.session.get)
-            listing = db.session.get(Listing, interest.listing_id)
-            seller = db.session.get(User, listing.seller_id) if listing else None
+            # 1. Hydrate contextual data FIRST while the object is in-memory
+            listing = db.session.get(Listing, str(interest.listing_id))
+            seller = db.session.get(User, str(listing.seller_id)) if listing else None
             
-            # Fixed: Combined brand and model name since title doesn't exist on Listing table
             if listing and listing.product:
                 interest.listing_title = f"{listing.product.brand} {listing.product.model_name}"
             else:
@@ -158,6 +194,10 @@ class ListingInterestService:
                 
             interest.seller_phone = seller.phone if seller else ""
             interest.seller_name = seller.name if seller else "Seller"
+            
+            # 2. Add and commit everything together cleanly
+            db.session.add(interest)
+            db.session.commit()
         
             logger.info(f"Successfully created interest tracking entry ID: {interest.id}")
             return interest
@@ -169,32 +209,14 @@ class ListingInterestService:
     @staticmethod
     def get_by_id(interest_id: IdType) -> Optional[ListingInterest]:
         logger.info(f"Fetching interest entry with ID: {interest_id}")
-        return db.session.get(ListingInterest, interest_id)
+        return db.session.get(ListingInterest, str(interest_id).lower())
 
     @staticmethod
     def get_all_for_listing(listing_id: IdType) -> List[ListingInterest]:
         logger.info(f"Fetching all active interest expressions/waitlist for listing ID: {listing_id}")
-        return ListingInterest.query.filter_by(listing_id=listing_id)\
+        clean_string_id = str(listing_id).lower()
+        return ListingInterest.query.filter_by(listing_id=clean_string_id)\
                                     .order_by(ListingInterest.created_at.asc()).all()
-
-    @staticmethod
-    def update(interest_id: IdType, data: dict) -> Optional[ListingInterest]:
-        logger.info(f"Updating interest entry ID {interest_id} status/data: {data}")
-        interest = ListingInterestService.get_by_id(interest_id)
-        if not interest:
-            logger.warning(f"Interest record with ID {interest_id} not found for update")
-            return None
-            
-        try:
-            for key, value in data.items():
-                setattr(interest, key, value)
-            db.session.commit()
-            logger.info(f"Successfully updated interest entry ID: {interest_id}")
-            return interest
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Failed to update interest record {interest_id}. Error: {str(e)}")
-            raise e
 
     @staticmethod
     def delete(interest_id: IdType) -> bool:
@@ -212,4 +234,68 @@ class ListingInterestService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"Failed to drop interest record {interest_id}. Error: {str(e)}")
+            raise e
+        
+    @staticmethod
+    def get_interests_by_seller_listings(seller_id: IdType) -> List[ListingInterest]:
+        logger.info(f"Fetching all received interests for listings owned by seller {seller_id}")
+        clean_seller_id = str(seller_id).lower()
+        return ListingInterest.query.join(Listing)\
+            .filter(Listing.seller_id == clean_seller_id)\
+            .order_by(ListingInterest.created_at.desc()).all()
+
+    @staticmethod
+    def get_interests_by_buyer(buyer_id: IdType) -> List[ListingInterest]:
+        logger.info(f"Fetching all interest expressions sent by buyer {buyer_id}")
+        clean_buyer_id = str(buyer_id).lower()
+        return ListingInterest.query.filter_by(buyer_id=clean_buyer_id)\
+            .order_by(ListingInterest.created_at.desc()).all()   
+
+    @staticmethod
+    def get_by_status(status: Union[InterestStatus, str]) -> List[ListingInterest]:
+        """
+        Fetches all global user interest inquiries filtered by status.
+        """
+        logger.info(f"Fetching all interest entries with status: {status}")
+        try:
+            if isinstance(status, str):
+                status_enum = InterestStatus[status.upper()]
+            else:
+                status_enum = status
+                
+            return ListingInterest.query.filter_by(status=status_enum)\
+                                        .order_by(ListingInterest.created_at.desc()).all()
+        except KeyError:
+            logger.error(f"Invalid interest status string provided: {status}")
+            return []
+
+    @staticmethod
+    def update_specific_interest(interest_id: IdType, data: dict) -> Optional[ListingInterest]:
+        """
+        Safely validates and updates fields on a single, specific interest record.
+        """
+        clean_interest_id = str(interest_id).lower()
+        logger.info(f"Attempting to update specific interest record ID: {clean_interest_id}")
+        
+        interest = ListingInterestService.get_by_id(clean_interest_id)
+        if not interest:
+            logger.warning(f"Interest record {clean_interest_id} not found for update")
+            return None
+            
+        try:
+            for key, value in data.items():
+                if key == "status":
+                    if isinstance(value, str):
+                        setattr(interest, key, InterestStatus[value.upper()])
+                    elif isinstance(value, InterestStatus):
+                        setattr(interest, key, value)
+                else:
+                    setattr(interest, key, value)
+                    
+            db.session.commit()
+            logger.info(f"Successfully updated interest record ID: {clean_interest_id}")
+            return interest
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Failed to update interest record {clean_interest_id}. Error: {str(e)}")
             raise e
