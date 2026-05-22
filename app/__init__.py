@@ -6,7 +6,8 @@ import logging
 from flask import Flask
 from app.config import get_config
 from app.extensions import db, jwt, migrate, mail
-from app.routes import auth_bp
+# Import your new master v1 blueprint containing products, listings, and interests
+from app.routes import auth_bp, api_v1_bp 
 from app.events import register_event_listeners
 
 
@@ -44,6 +45,9 @@ def create_app(config_name=None):
     
     # Register blueprints
     app.register_blueprint(auth_bp)
+    
+    # Mount products, listings, and interests cleanly under /api/v1
+    app.register_blueprint(api_v1_bp, url_prefix='/api/v1')
     
     # Register event listeners
     register_event_listeners()

@@ -74,7 +74,7 @@ class AuthService:
         # Check if email already exists
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
-            raise ValueError("Email already registered")
+            raise ValueError("Email already registered", 400)
         
         # Set default role
         if not role:
@@ -218,30 +218,34 @@ class AuthService:
         Raises:
             ValueError: If credentials invalid or account issue
         """
-        # Find user by email
+        # 1. Find user by email
         user = User.query.filter_by(email=email).first()
         
+        # SECURITY: Generic message prevents user enumeration
         if not user:
             raise ValueError("Invalid email or password")
         
-        # Check user status (suspended → inactive → pending_approval)
-        if user.status == UserStatus.SUSPENDED.value:
-            raise ValueError("Your account has been suspended. Please contact support.", 403)
-        
-        if user.status == UserStatus.INACTIVE.value:
-            raise ValueError("Your account is inactive. Please contact support.", 403)
-        
-        if user.status == UserStatus.PENDING_APPROVAL.value:
-            raise ValueError("Your account is pending approval. Please wait for notification.", 403)
-        
-        # Verify password
+        # 2. Verify password FIRST before exposing account status
         if not AuthService.verify_password(user.password, password):
             raise ValueError("Invalid email or password")
         
-        # Generate JWT access token
-        access_token = create_access_token(identity=user.id)
+        # 3. Check user status safely post-authentication
+        if user.status == UserStatus.SUSPENDED.value:
+            raise ValueError("Your account has been suspended. Please contact support.")
         
-        # Generate and store refresh token
+        if user.status == UserStatus.INACTIVE.value:
+            raise ValueError("Your account is inactive. Please contact support.")
+        
+        if user.status == UserStatus.PENDING_APPROVAL.value:
+            raise ValueError("Your account is pending approval. Please wait for notification.")
+        
+        # 4. Generate JWT access token
+        access_token = create_access_token(
+            identity=str(user.id), 
+            additional_claims={"role": user.role} # Injects role data into the token
+        )
+        
+        # 5. Generate and store refresh token
         refresh_token_string = secrets.token_urlsafe(64)
         expiry_date = datetime.utcnow() + current_app.config["JWT_REFRESH_TOKEN_EXPIRES"]
         
@@ -266,7 +270,7 @@ class AuthService:
                 "status": user.status,
             },
         }, 200
-    
+
     @staticmethod
     def change_password(user_id, old_password, new_password):
         """
@@ -286,14 +290,15 @@ class AuthService:
         user = db.session.get(User, user_id)
         
         if not user:
-            raise ValueError("User not found")
+            raise ValueError("User not found", 404)
         
         # Verify old password
         if not AuthService.verify_password(user.password, old_password):
-            raise ValueError("Current password is incorrect")
+            raise ValueError("Current password is incorrect", 400)
         
         # Hash and save new password
         user.password = AuthService.hash_password(new_password)
+        RefreshToken.query.filter_by(user_id=user.id).delete()
         db.session.commit()
         
         logger.info(f"Password changed for user: {user.email}")
@@ -310,9 +315,6 @@ class AuthService:
             
         Returns:
             Tuple of (message_dict, status_code)
-            
-        Note:
-            Returns same message regardless of whether email exists (security).
         """
         # Find user silently (don't reveal if email exists)
         user = User.query.filter_by(email=email).first()
@@ -387,6 +389,7 @@ class AuthService:
         # Update password
         user.password = AuthService.hash_password(new_password)
         
+        RefreshToken.query.filter_by(user_id=user.id).delete()
         # Delete token after use
         db.session.delete(token_record)
         db.session.commit()
@@ -429,7 +432,10 @@ class AuthService:
         user = refresh_token.user
         
         # Generate new access token
-        new_access_token = create_access_token(identity=user.id)
+        new_access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={"role": user.role}
+        )
         
         # Generate new refresh token
         new_refresh_token_string = secrets.token_urlsafe(64)

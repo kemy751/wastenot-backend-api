@@ -27,6 +27,7 @@ def get_database_uri():
     host = os.getenv("POSTGRES_HOST", "localhost")
     port = os.getenv("POSTGRES_PORT", "5432")
     database = os.getenv("POSTGRES_DATABASE", "wastenot")
+    
 
     return URL.create(
         "postgresql+psycopg2",
@@ -36,6 +37,10 @@ def get_database_uri():
         port=int(port),
         database=database,
     )
+
+
+
+
 
 class Config:
 
