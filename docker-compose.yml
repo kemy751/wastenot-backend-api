@@ -1,0 +1,13 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wastenot-backend
+    ports:
+      - "4000:4000"
+    environment:
+      FLASK_ENV: development
+      FLASK_HOST: 0.0.0.0
+      FLASK_PORT: 4000
+    restart: unless-stopped

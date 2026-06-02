@@ -1,0 +1,14 @@
+.git
+.gitignore
+__pycache__
+.pytest_cache
+.venv
+venv
+.env
+*.pyc
+*.pyo
+*.pyd
+instance/
+*.sqlite
+*.sqlite3
+wastenot.db
