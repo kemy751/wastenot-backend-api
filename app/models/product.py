@@ -95,7 +95,7 @@ class Listing(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     product = db.relationship("Product", back_populates="listings")
-    seller = db.relationship("User", backref=db.backref("listings", lazy=True))
+    seller = db.relationship("User", back_populates="listings")
     interests = db.relationship("ListingInterest", back_populates="listing", lazy=True)
 
 class ListingInterest(db.Model):
@@ -109,4 +109,4 @@ class ListingInterest(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     listing = db.relationship("Listing", back_populates="interests")
-    buyer = db.relationship("User", backref=db.backref("expressed_interests", lazy=True))
+    buyer = db.relationship("User", back_populates="expressed_interests")

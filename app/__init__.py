@@ -3,7 +3,8 @@ Flask application factory and initialization.
 """
 
 import logging
-from flask import Flask
+from flask import Flask, request
+from flask_cors import CORS
 from app.config import get_config
 from app.extensions import db, jwt, migrate, mail
 # Import your new master v1 blueprint containing products, listings, and interests
@@ -37,16 +38,23 @@ def create_app(config_name=None):
     
     app.config.from_object(config)
     
+    
+    @app.before_request
+    def handle_preflight():
+        if request.method == "OPTIONS":
+            return "", 200
+        
     # Initialize extensions
     db.init_app(app)
     jwt.init_app(app)
     migrate.init_app(app, db)
     mail.init_app(app)
+
+    # Enable CORS for auth routes (adjust origin to your React dev server)
+    CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}}, supports_credentials=True)
     
     # Register blueprints
-    app.register_blueprint(auth_bp)
-    
-    # Mount products, listings, and interests cleanly under /api/v1
+    app.register_blueprint(auth_bp, url_prefix='/api/v1')
     app.register_blueprint(api_v1_bp, url_prefix='/api/v1')
     
     # Register event listeners

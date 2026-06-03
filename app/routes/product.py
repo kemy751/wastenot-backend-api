@@ -38,16 +38,15 @@ def roles_required(*allowed_roles: UserRole):
 # PRODUCT ROUTES
 # =====================================================================
 
-@product_bp.route('/products', methods=['POST'])
+@product_bp.route('/products', methods=['POST', 'OPTIONS'])
 @roles_required(UserRole.SELLER, UserRole.ADMIN)
 def create_product():
     try:
         json_data = request.get_json() or {}
         
         # Explicitly bind the product to the active merchant context
-        claims = get_jwt()
-        if claims.get("role") != UserRole.ADMIN.value:
-            json_data['seller_id'] = get_jwt_identity()
+        current_user_id = get_jwt_identity()
+        json_data['seller_id'] = current_user_id
 
         data = ProductSchema().load(json_data)
         product = ProductService.create(data)
@@ -168,7 +167,7 @@ def get_listing(listing_id):
     return jsonify(ListingSchema().dump(listing)), 200
 
 
-@listing_bp.route('/listings', methods=['GET'])
+@listing_bp.route('/listings', methods=['GET', 'POST', 'OPTIONS'])
 def get_all_listings():
     listings = ListingService.get_all()
     return jsonify(ListingSchema().dump(listings, many=True)), 200

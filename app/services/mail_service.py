@@ -4,6 +4,7 @@ Uses Flask-Mail and Jinja2 templates.
 """
 
 import logging
+from os import name
 from flask import Flask, render_template
 from flask_mail import Mail, Message
 from app.extensions import mail
@@ -78,25 +79,12 @@ class MailService:
             logger.error(f"Error sending password reset email to {email}: {str(e)}")
             raise
     
-    def send_delivery_staff_confirmation_email(self, first_name, email):
-        """
-        Send confirmation email to delivery staff.
-        
-        Args:
-            first_name: Staff member's first name
-            email: Staff member's email
-        """
-        # Backwards-compatible wrapper to new seller method
-        return self.send_seller_confirmation_email(first_name, email)
+    def send_seller_confirmation_email(self, name, email):
 
-    def send_seller_confirmation_email(self, first_name, email):
-        """
-        Send confirmation email to seller (formerly delivery staff).
-        """
         try:
             html = render_template(
                 "emails/seller_confirmation.html",
-                first_name=first_name,
+                name=name,
             )
 
             msg = Message(
@@ -111,34 +99,8 @@ class MailService:
             logger.error(f"Error sending seller confirmation email to {email}: {str(e)}")
             raise
     
-    def send_delivery_staff_registration_admin_email(
-        self, first_name, last_name, email, phone,
-        vehicle_type, license_number, selfie_url,
-        national_id_front_url, national_id_back_url
-    ):
-        """
-        Send admin notification for new delivery staff.
-        
-        Args:
-            first_name: Staff member's first name
-            last_name: Staff member's last name
-            email: Staff member's email
-            phone: Staff member's phone
-            vehicle_type: Type of vehicle
-            license_number: Driver license number
-            selfie_url: Selfie URL
-            national_id_front_url: National ID front URL
-            national_id_back_url: National ID back URL
-        """
-        # Backwards-compatible wrapper to new seller admin notification
-        return self.send_seller_registration_admin_email(
-            first_name, last_name, email, phone,
-            vehicle_type, license_number, selfie_url,
-            national_id_front_url, national_id_back_url
-        )
-
     def send_seller_registration_admin_email(
-        self, first_name, last_name, email, phone,
+        self, name, email, phone,
         vehicle_type, license_number, selfie_url,
         national_id_front_url, national_id_back_url
     ):
@@ -150,8 +112,7 @@ class MailService:
 
             html = render_template(
                 "emails/seller_registration_admin.html",
-                first_name=first_name,
-                last_name=last_name,
+                name=name,
                 email=email,
                 phone=phone,
                 vehicle_type=vehicle_type,
@@ -174,7 +135,7 @@ class MailService:
             raise
     
     def send_user_status_updated_email(
-        self, user_name, email, old_status, new_status,
+        self, name, email, old_status, new_status,
         is_approved, is_suspended
     ):
         """
@@ -191,7 +152,7 @@ class MailService:
         try:
             html = render_template(
                 "emails/user_status_updated.html",
-                user_name=user_name,
+                name=name,
                 old_status=old_status,
                 new_status=new_status,
                 is_approved=is_approved,

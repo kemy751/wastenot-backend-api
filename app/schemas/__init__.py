@@ -9,21 +9,15 @@ from app.schemas.auth_schemas import (
     RefreshTokenSchema,
     UpdateUserStatusSchema,
 )
-from app.schemas.seller_schemas import RegisterSellerSchema
+from app.schemas.product_schemas import ProductSchema, ListingSchema, ListingInterestSchema
 
-# 1. Import your core business entity schemas
-# (Note: If these schemas are located in a file with a different name, 
-# change '.product_schemas' to match your actual file name, like '.schemas'!)
-from app.schemas.product_schemas import (
-    ProductSchema,
-    ListingSchema,
-    ListingInterestSchema
-)
+# Simple profile update schema
+from marshmallow import Schema, fields
 
-# Backwards-compatible alias
-RegisterDeliveryStaffSchema = RegisterSellerSchema
+class UpdateProfileSchema(Schema):
+    name = fields.String(required=False)
+    phone = fields.String(required=False)
 
-# 2. Add them to the public namespace
 __all__ = [
     "SignupSchema",
     "LoginSchema",
@@ -32,9 +26,8 @@ __all__ = [
     "ResetPasswordSchema",
     "RefreshTokenSchema",
     "UpdateUserStatusSchema",
-    "RegisterSellerSchema",
-    "RegisterDeliveryStaffSchema",
     "ProductSchema",
     "ListingSchema",
     "ListingInterestSchema",
+    "UpdateProfileSchema",
 ]

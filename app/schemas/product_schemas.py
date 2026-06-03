@@ -6,7 +6,7 @@ class ProductSchema(Schema):
     brand = fields.Str(required=True, validate=validate.Length(min=1, max=100))
     model_name = fields.Str(required=True, validate=validate.Length(min=1, max=150))
 
-    seller_id = fields.UUID(required=True)
+    seller_id = fields.UUID(load_default=None)
     
     # Leverages Marshmallow's Enum processor to auto-map strings to Enum objects
     electronic_type = fields.Enum(ElectronicType, by_value=True, required=True)
@@ -22,7 +22,7 @@ class ProductSchema(Schema):
 
 class ListingSchema(Schema):
     id = fields.UUID(dump_only=True)
-    seller_id = fields.UUID(required=True)
+    seller_id = fields.UUID(load_default=None)
     product_id = fields.UUID(required=True)
     price = fields.Decimal(required=True, places=2, as_string=True, validate=validate.Range(min=0.0))
     condition = fields.Enum(ItemCondition, by_value=True, required=True)

@@ -1,7 +1,10 @@
+import os
+import uuid
 import logging
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
+from werkzeug.utils import secure_filename
 from app.schemas import (
     SignupSchema,
     LoginSchema,
@@ -10,7 +13,7 @@ from app.schemas import (
     ResetPasswordSchema,
     RefreshTokenSchema,
     UpdateUserStatusSchema,
-    RegisterSellerSchema,
+    UpdateProfileSchema,
 )
 from app.services import AuthService
 from app.decorators import roles_required
@@ -19,6 +22,38 @@ logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
+# ---------------------------------------------------------------------------
+# File upload config
+# ---------------------------------------------------------------------------
+
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
+KYC_UPLOAD_FOLDER = os.environ.get("KYC_UPLOAD_FOLDER", "uploads/kyc")
+
+
+def _allowed_file(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _save_file(file, subfolder: str) -> str:
+    """
+    Save an uploaded FileStorage object to disk and return the public URL path.
+
+    Swap this function out for a Cloudinary / S3 upload if needed — the rest
+    of the route stays the same.
+    """
+    ext = file.filename.rsplit(".", 1)[1].lower()
+    unique_name = f"{uuid.uuid4().hex}.{ext}"
+    folder = os.path.join(KYC_UPLOAD_FOLDER, subfolder)
+    os.makedirs(folder, exist_ok=True)
+    save_path = os.path.join(folder, unique_name)
+    file.save(save_path)
+    # Return as a URL path the frontend / storage layer can access
+    return f"/{save_path}"
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def error_response(message, status_code=400):
     return jsonify({"error": message, "status_code": status_code}), status_code
@@ -26,394 +61,401 @@ def error_response(message, status_code=400):
 
 def success_response(message, data=None, status_code=200):
     response = {"message": message}
-    if data:
+    if data is not None:
         response["data"] = data
     return jsonify(response), status_code
 
 
-@auth_bp.route("/register", methods=["POST"])
-def register():
+# ---------------------------------------------------------------------------
+# Public routes
+# ---------------------------------------------------------------------------
 
+@auth_bp.route("/auth/register", methods=["POST"])
+def register():
+    """Register a regular buyer/admin user."""
     try:
-        # Get and validate request data
-        schema = SignupSchema()
-        data = schema.load(request.get_json())
-        
-        # Register user
+        data = SignupSchema().load(request.get_json())
+
         result, status_code = AuthService.signup(
-            name=data.get("name"),
-            email=data.get("email"),
-            password=data.get("password"),
+            name=data["name"],
+            email=data["email"],
+            password=data["password"],
             role=data.get("role"),
             phone=data.get("phone"),
         )
-        
-        return jsonify({"message": "User registered successfully", "data": result}), status_code
-    
+
+        return success_response("User registered successfully", result, status_code)
+
     except ValidationError as e:
         logger.warning(f"Validation error during registration: {e.messages}")
-        return error_response(f"Validation error: {str(e.messages)}", 400)
-    
+        return error_response(e.messages, 422)
+
     except ValueError as e:
-        logger.warning(f"Registration error: {str(e)}")
+        logger.warning(f"Registration error: {e}")
         return error_response(str(e), 400)
-    
+
     except Exception as e:
-        logger.error(f"Unexpected error during registration: {str(e)}")
+        logger.exception("Unexpected error during registration")
         return error_response("Registration failed. Please try again.", 500)
 
 
-@auth_bp.route("/register-seller", methods=["POST"])
+@auth_bp.route("/auth/register-seller", methods=["POST"])
 def register_seller():
+    """
+    Register a seller (creates User + SellerProfile in one step).
+    Expects multipart/form-data with fields:
+        name, email, password, phone, address (optional)
+        and files: selfie, national_id_front, national_id_back
+    """
     try:
-        # Get and validate request data
-        schema = RegisterSellerSchema()
-        data = schema.load(request.get_json())
-        
-        # Register delivery staff
+        # Remove trailing commas that created tuples
+        name = request.form.get("name")
+        email = request.form.get("email")
+        password = request.form.get("password")
+        phone = request.form.get("phone")
+        address = request.form.get("address")
+
+        # Validation
+        if not all([name, email, password, phone]):
+            return error_response("name, email, password, phone are required", 422)
+
+        # File uploads
+        file_fields = {
+            "selfie": "selfie_url",
+            "national_id_front": "national_id_front_url",
+            "national_id_back": "national_id_back_url",
+        }
+        file_urls = {}
+
+        for form_key, service_key in file_fields.items():
+            file = request.files.get(form_key)
+            if not file or file.filename == "":
+                return error_response(f"{form_key} image is required", 422)
+            if not _allowed_file(file.filename):
+                return error_response(
+                    f"{form_key} must be a valid image (png, jpg, jpeg, webp)", 422
+                )
+            file_urls[service_key] = _save_file(file, subfolder=form_key)
+
+        # Call service
         result, status_code = AuthService.register_seller(
-            email=data.get("email"),
-            password=data.get("password"),
-            first_name=data.get("first_name"),
-            last_name=data.get("last_name"),
-            phone=data.get("phone"),
-            vehicle_type=data.get("vehicle_type"),
-            license_number=data.get("license_number"),
-            selfie_url=data.get("selfie_url"),
-            national_id_front_url=data.get("national_id_front_url"),
-            national_id_back_url=data.get("national_id_back_url"),
-            address=data.get("address"),
+            name=name,
+            email=email,
+            password=password,
+            phone=phone,
+            address=address,
+            selfie_url=file_urls["selfie_url"],
+            national_id_front_url=file_urls["national_id_front_url"],
+            national_id_back_url=file_urls["national_id_back_url"],
         )
-        
+
         return jsonify(result), status_code
-    
-    except ValidationError as e:
-        logger.warning(f"Validation error during delivery staff registration: {e.messages}")
-        return error_response(f"Validation error: {str(e.messages)}", 400)
-    
+
     except ValueError as e:
-        logger.warning(f"Delivery staff registration error: {str(e)}")
+        logger.warning(f"Seller registration error: {e}")
         return error_response(str(e), 400)
-    
+
     except Exception as e:
-        logger.error(f"Unexpected error during delivery staff registration: {str(e)}")
+        logger.exception("Unexpected error during seller registration")
         return error_response("Registration failed. Please try again.", 500)
 
 
-@auth_bp.route("/login", methods=["POST"])
+@auth_bp.route("/auth/login", methods=["POST"])
 def login():
-    """
-    Authenticate user and return tokens.
-    
-    Request body:
-        {
-            "email": "string",
-            "password": "string"
-        }
-    """
+    """Authenticate a user and return access + refresh tokens."""
     try:
-        # Get and validate request data
-        schema = LoginSchema()
-        data = schema.load(request.get_json())
-        
-        # Authenticate user
+        data = LoginSchema().load(request.get_json())
+
         result, status_code = AuthService.login(
-            email=data.get("email"),
-            password=data.get("password"),
+            email=data["email"],
+            password=data["password"],
         )
-        
+
         return jsonify(result), status_code
-    
+
     except ValidationError as e:
         logger.warning(f"Validation error during login: {e.messages}")
-        return error_response(f"Validation error: {str(e.messages)}", 400)
-    
+        return error_response(e.messages, 422)
+
     except ValueError as e:
-        error_msg = str(e)
-        # Handle status code in error message (hack for now)
-        if len(e.args) > 1:
-            return error_response(error_msg, e.args[1])
-        return error_response(error_msg, 401)
-    
+        status = e.args[1] if len(e.args) > 1 else 401
+        return error_response(str(e), status)
+
     except Exception as e:
-        logger.error(f"Unexpected error during login: {str(e)}")
+        logger.exception("Unexpected error during login")
         return error_response("Login failed. Please try again.", 500)
 
 
-@auth_bp.route("/refresh", methods=["POST"])
-def refresh():
-    """
-    Refresh JWT tokens.
-    
-    Request body:
-        {
-            "refresh_token": "string"
-        }
-    """
+@auth_bp.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    """Send a password-reset email (always returns 200 to avoid user enumeration)."""
     try:
-        # Get and validate request data
-        schema = RefreshTokenSchema()
-        data = schema.load(request.get_json())
-        
-        # Get user ID from JWT (should be present since this is being called by client)
+        data = ForgotPasswordSchema().load(request.get_json())
+        result, status_code = AuthService.forgot_password(email=data["email"])
+        return jsonify(result), status_code
+
+    except ValidationError as e:
+        logger.warning(f"Validation error during forgot password: {e.messages}")
+        return error_response(e.messages, 422)
+
+    except Exception as e:
+        logger.exception("Unexpected error during forgot password")
+        return error_response("Password reset request failed. Please try again.", 500)
+
+
+@auth_bp.route("/reset-password", methods=["PUT"])
+def reset_password():
+    """Reset a password using a valid reset token."""
+    try:
+        data = ResetPasswordSchema().load(request.get_json())
+
+        result, status_code = AuthService.reset_password(
+            reset_token=data["reset_token"],
+            new_password=data["new_password"],
+        )
+
+        return jsonify(result), status_code
+
+    except ValidationError as e:
+        logger.warning(f"Validation error during password reset: {e.messages}")
+        return error_response(e.messages, 422)
+
+    except ValueError as e:
+        logger.warning(f"Password reset error: {e}")
+        return error_response(str(e), 400)
+
+    except Exception as e:
+        logger.exception("Unexpected error during password reset")
+        return error_response("Password reset failed. Please try again.", 500)
+
+
+# ---------------------------------------------------------------------------
+# Authenticated routes (any role)
+# ---------------------------------------------------------------------------
+
+@auth_bp.route("/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh():
+    """Exchange a valid refresh token for a new access + refresh token pair."""
+    try:
+        data = RefreshTokenSchema().load(request.get_json())
         user_id = get_jwt_identity()
-        
-        if not user_id:
-            return error_response("Unauthorized", 401)
-        
-        # Refresh tokens
+
         result, status_code = AuthService.refresh_tokens(
-            refresh_token_string=data.get("refresh_token"),
+            refresh_token_string=data["refresh_token"],
             user_id=user_id,
         )
-        
+
         return jsonify(result), status_code
-    
+
     except ValidationError as e:
         logger.warning(f"Validation error during token refresh: {e.messages}")
-        return error_response(f"Validation error: {str(e.messages)}", 400)
-    
+        return error_response(e.messages, 422)
+
     except ValueError as e:
-        logger.warning(f"Token refresh error: {str(e)}")
+        logger.warning(f"Token refresh error: {e}")
         return error_response(str(e), 401)
-    
+
     except Exception as e:
-        logger.error(f"Unexpected error during token refresh: {str(e)}")
+        logger.exception("Unexpected error during token refresh")
         return error_response("Token refresh failed. Please try again.", 500)
 
 
 @auth_bp.route("/profile", methods=["GET"])
 @jwt_required()
 def get_profile():
-    """
-    Get current user profile.
-    Requires valid JWT token.
-    """
+    """Return the authenticated user's profile (includes seller_profile if applicable)."""
     try:
         user_id = get_jwt_identity()
         result, status_code = AuthService.get_profile(user_id)
         return jsonify(result), status_code
-    
+
     except ValueError as e:
-        logger.warning(f"Profile retrieval error: {str(e)}")
+        logger.warning(f"Profile retrieval error: {e}")
         return error_response(str(e), 404)
-    
+
     except Exception as e:
-        logger.error(f"Unexpected error during profile retrieval: {str(e)}")
+        logger.exception("Unexpected error during profile retrieval")
         return error_response("Profile retrieval failed. Please try again.", 500)
+
+
+@auth_bp.route("/profile", methods=["PUT"])
+@jwt_required()
+def update_profile():
+    """Update the authenticated user's basic profile fields."""
+    try:
+        data = UpdateProfileSchema().load(request.get_json())
+        user_id = get_jwt_identity()
+
+        result, status_code = AuthService.update_profile(
+            user_id=user_id,
+            **data,
+        )
+
+        return jsonify(result), status_code
+
+    except ValidationError as e:
+        logger.warning(f"Validation error during profile update: {e.messages}")
+        return error_response(e.messages, 422)
+
+    except ValueError as e:
+        logger.warning(f"Profile update error: {e}")
+        return error_response(str(e), 400)
+
+    except Exception as e:
+        logger.exception("Unexpected error during profile update")
+        return error_response("Profile update failed. Please try again.", 500)
 
 
 @auth_bp.route("/change-password", methods=["PUT"])
 @jwt_required()
 def change_password():
-    """
-    Change user password.
-    Requires valid JWT token.
-    
-    Request body:
-        {
-            "old_password": "string",
-            "new_password": "string"
-        }
-    """
+    """Change password for the authenticated user."""
     try:
-        # Get and validate request data
-        schema = ChangePasswordSchema()
-        data = schema.load(request.get_json())
-        
+        data = ChangePasswordSchema().load(request.get_json())
         user_id = get_jwt_identity()
-        
-        # Change password
+
         result, status_code = AuthService.change_password(
             user_id=user_id,
-            old_password=data.get("old_password"),
-            new_password=data.get("new_password"),
+            old_password=data["old_password"],
+            new_password=data["new_password"],
         )
-        
+
         return jsonify(result), status_code
-    
+
     except ValidationError as e:
         logger.warning(f"Validation error during password change: {e.messages}")
-        return error_response(f"Validation error: {str(e.messages)}", 400)
-    
+        return error_response(e.messages, 422)
+
     except ValueError as e:
-        logger.warning(f"Password change error: {str(e)}")
+        logger.warning(f"Password change error: {e}")
         return error_response(str(e), 400)
-    
+
     except Exception as e:
-        logger.error(f"Unexpected error during password change: {str(e)}")
+        logger.exception("Unexpected error during password change")
         return error_response("Password change failed. Please try again.", 500)
 
 
-@auth_bp.route("/forgot-password", methods=["POST"])
-def forgot_password():
-    """
-    Request password reset.
-    Sends reset email (if account exists).
-    
-    Request body:
-        {
-            "email": "string"
-        }
-    """
-    try:
-        # Get and validate request data
-        schema = ForgotPasswordSchema()
-        data = schema.load(request.get_json())
-        
-        # Request password reset
-        result, status_code = AuthService.forgot_password(
-            email=data.get("email")
-        )
-        
-        return jsonify(result), status_code
-    
-    except ValidationError as e:
-        logger.warning(f"Validation error during forgot password: {e.messages}")
-        return error_response(f"Validation error: {str(e.messages)}", 400)
-    
-    except Exception as e:
-        logger.error(f"Unexpected error during forgot password: {str(e)}")
-        return error_response("Password reset request failed. Please try again.", 500)
+# ---------------------------------------------------------------------------
+# Admin-only routes
+# ---------------------------------------------------------------------------
 
-
-@auth_bp.route("/reset-password", methods=["PUT"])
-def reset_password():
-    """
-    Reset password using reset token.
-    
-    Request body:
-        {
-            "reset_token": "string",
-            "new_password": "string"
-        }
-    """
-    try:
-        # Get and validate request data
-        schema = ResetPasswordSchema()
-        data = schema.load(request.get_json())
-        
-        # Reset password
-        result, status_code = AuthService.reset_password(
-            reset_token=data.get("reset_token"),
-            new_password=data.get("new_password"),
-        )
-        
-        return jsonify(result), status_code
-    
-    except ValidationError as e:
-        logger.warning(f"Validation error during password reset: {e.messages}")
-        return error_response(f"Validation error: {str(e.messages)}", 400)
-    
-    except ValueError as e:
-        logger.warning(f"Password reset error: {str(e)}")
-        return error_response(str(e), 400)
-    
-    except Exception as e:
-        logger.error(f"Unexpected error during password reset: {str(e)}")
-        return error_response("Password reset failed. Please try again.", 500)
-
-
-@auth_bp.route("/pending-users", methods=["GET"])
-@jwt_required()
-@roles_required("admin")
-def get_pending_users():
-    """
-    Get all pending users (admin only).
-    Requires valid JWT token and admin role.
-    """
-    try:
-        result, status_code = AuthService.get_pending_users()
-        return jsonify(result), status_code
-    
-    except Exception as e:
-        logger.error(f"Unexpected error retrieving pending users: {str(e)}")
-        return error_response("Failed to retrieve pending users.", 500)
-
-
-@auth_bp.route("/all-users", methods=["GET"])
+@auth_bp.route("/users", methods=["GET"])
 @jwt_required()
 @roles_required("admin")
 def get_all_users():
-    """
-    Get all users (admin only).
-    Requires valid JWT token and admin role.
-    """
+    """Return all users (admin only)."""
     try:
         result, status_code = AuthService.get_all_users()
         return jsonify(result), status_code
-    
+
     except Exception as e:
-        logger.error(f"Unexpected error retrieving all users: {str(e)}")
-        return error_response("Failed to retrieve all users.", 500)
+        logger.exception("Unexpected error retrieving all users")
+        return error_response("Failed to retrieve users.", 500)
 
 
-@auth_bp.route("/update-status", methods=["PUT"])
+@auth_bp.route("/users/pending", methods=["GET"])
 @jwt_required()
 @roles_required("admin")
-def update_user_status():
-    """
-    Update user status (admin only).
-    Requires valid JWT token and admin role.
-    
-    Request body:
-        {
-            "email": "string",
-            "status": "string"
-        }
-    """
+def get_pending_users():
+    """Return users with PENDING_APPROVAL status (admin only)."""
     try:
-        # Get and validate request data
-        schema = UpdateUserStatusSchema()
-        data = schema.load(request.get_json())
-        
-        user_id = get_jwt_identity()
-        
-        # Update user status
-        result, status_code = AuthService.update_user_status(
-            admin_user_id=user_id,
-            email=data.get("email"),
-            new_status=data.get("status"),
-        )
-        
+        result, status_code = AuthService.get_pending_users()
         return jsonify(result), status_code
-    
-    except ValidationError as e:
-        logger.warning(f"Validation error during user status update: {e.messages}")
-        return error_response(f"Validation error: {str(e.messages)}", 400)
-    
-    except ValueError as e:
-        logger.warning(f"User status update error: {str(e)}")
-        return error_response(str(e), 403 if "admin" in str(e).lower() else 400)
-    
+
     except Exception as e:
-        logger.error(f"Unexpected error during user status update: {str(e)}")
-        return error_response("Failed to update user status.", 500)
+        logger.exception("Unexpected error retrieving pending users")
+        return error_response("Failed to retrieve pending users.", 500)
 
 
-@auth_bp.route("/users-by-role/<role>", methods=["GET"])
+@auth_bp.route("/users/role/<role>", methods=["GET"])
 @jwt_required()
 @roles_required("admin")
 def get_users_by_role(role):
+    """Return all users with a given role (admin only)."""
+    try:
+        admin_id = get_jwt_identity()
+        result, status_code = AuthService.get_users_by_role(admin_user_id=admin_id, role=role)
+        return jsonify(result), status_code
+
+    except ValueError as e:
+        logger.warning(f"Get users by role error: {e}")
+        return error_response(str(e), 400)
+
+    except Exception as e:
+        logger.exception("Unexpected error getting users by role")
+        return error_response("Failed to retrieve users by role.", 500)
+
+
+@auth_bp.route("/users/status", methods=["PUT"])
+@jwt_required()
+@roles_required("admin")
+def update_user_status():
+    """Update a user's status (admin only)."""
+    try:
+        data = UpdateUserStatusSchema().load(request.get_json())
+        admin_id = get_jwt_identity()
+
+        result, status_code = AuthService.update_user_status(
+            admin_user_id=admin_id,
+            email=data["email"],
+            new_status=data["status"],
+        )
+
+        return jsonify(result), status_code
+
+    except ValidationError as e:
+        logger.warning(f"Validation error during status update: {e.messages}")
+        return error_response(e.messages, 422)
+
+    except ValueError as e:
+        logger.warning(f"Status update error: {e}")
+        status = 403 if "admin" in str(e).lower() else 400
+        return error_response(str(e), status)
+
+    except Exception as e:
+        logger.exception("Unexpected error during user status update")
+        return error_response("Failed to update user status.", 500)
+
+
+@auth_bp.route("/sellers/<seller_profile_id>/verify", methods=["PUT"])
+@jwt_required()
+@roles_required("admin")
+def verify_seller(seller_profile_id):
     """
-    Get all users with a specific role (admin only).
-    Requires valid JWT token and admin role.
-    
-    URL Parameters:
-        role: The role to filter by
+    Approve or reject a seller's KYC documents (admin only).
+
+    Request body:
+        {
+            "action": "approve" | "reject",
+            "reason": "string"   // required when action is reject
+        }
     """
     try:
-        user_id = get_jwt_identity()
-        result, status_code = AuthService.get_users_by_role(
-            admin_user_id=user_id,
-            role=role,
+        body = request.get_json() or {}
+        action = body.get("action")
+        reason = body.get("reason")
+
+        if action not in ("approve", "reject"):
+            return error_response("action must be 'approve' or 'reject'", 400)
+
+        if action == "reject" and not reason:
+            return error_response("reason is required when rejecting a seller", 400)
+
+        admin_id = get_jwt_identity()
+        result, status_code = AuthService.verify_seller(
+            admin_user_id=admin_id,
+            seller_profile_id=seller_profile_id,
+            action=action,
+            reason=reason,
         )
+
         return jsonify(result), status_code
-    
+
     except ValueError as e:
-        logger.warning(f"Get users by role error: {str(e)}")
-        return error_response(str(e), 403)
-    
+        logger.warning(f"Seller verification error: {e}")
+        return error_response(str(e), 400)
+
     except Exception as e:
-        logger.error(f"Unexpected error getting users by role: {str(e)}")
-        return error_response("Failed to retrieve users by role.", 500)
+        logger.exception("Unexpected error during seller verification")
+        return error_response("Seller verification failed. Please try again.", 500)
