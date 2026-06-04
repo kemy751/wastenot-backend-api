@@ -67,7 +67,7 @@ class Config:
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@wastenot.com")
     
     # Frontend
-    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
     
     # Bcrypt
     BCRYPT_LOG_ROUNDS = 10
