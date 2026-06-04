@@ -1,5 +1,6 @@
 from marshmallow import Schema, fields, validate
 from app.models import ElectronicType, ItemCondition, ListingStatus, InterestStatus
+from app.schemas.listing_image import ListingImageSchema
 
 class ProductSchema(Schema):
     id = fields.UUID(dump_only=True)
@@ -30,6 +31,9 @@ class ListingSchema(Schema):
     condition_notes = fields.Str(allow_none=True)
     status = fields.Enum(ListingStatus, by_value=True, load_default=ListingStatus.AVAILABLE)
     
+    # images
+    images = fields.List(fields.Nested(ListingImageSchema), dump_only=True)
+
     # NESTED: This allows listing results to show the full product info
     product = fields.Nested(ProductSchema, dump_only=True)
     interest_count = fields.Method("get_interest_count", dump_only=True)

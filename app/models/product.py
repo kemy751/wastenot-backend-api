@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy.orm import validates
 from app.extensions import db
+from .listing_image import ListingImage
 
 # --- ENUMS (Kept as is) ---
 class ElectronicType(enum.Enum):
@@ -48,7 +49,7 @@ class ListingStatus(enum.Enum):
     AVAILABLE = "AVAILABLE"
     PENDING_SALE = "PENDING_SALE"
     SOLD = "SOLD"
-    UNLISTED = "UNLISTED"
+    UNLISTED = "UNLISTED" 
 
 class InterestStatus(enum.Enum):
     EXPRESSED = "EXPRESSED"
@@ -98,6 +99,9 @@ class Listing(db.Model):
     seller = db.relationship("User", back_populates="listings")
     interests = db.relationship("ListingInterest", back_populates="listing", lazy=True)
 
+    images = db.relationship("ListingImage", back_populates="listing",
+        cascade="all, delete-orphan", order_by="ListingImage.sort_order")
+    
 class ListingInterest(db.Model):
     __tablename__ = "listing_interests"
 

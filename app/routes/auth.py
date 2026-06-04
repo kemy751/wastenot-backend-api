@@ -340,7 +340,7 @@ def change_password():
 # Admin-only routes
 # ---------------------------------------------------------------------------
 
-@auth_bp.route("/users", methods=["GET"])
+@auth_bp.route("/users", methods=["GET", "OPTIONS"])
 @jwt_required()
 @roles_required("admin")
 def get_all_users():
@@ -359,6 +359,10 @@ def get_all_users():
 @roles_required("admin")
 def get_pending_users():
     """Return users with PENDING_APPROVAL status (admin only)."""
+    
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+            
     try:
         result, status_code = AuthService.get_pending_users()
         return jsonify(result), status_code
@@ -373,6 +377,10 @@ def get_pending_users():
 @roles_required("admin")
 def get_users_by_role(role):
     """Return all users with a given role (admin only)."""
+    
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+    
     try:
         admin_id = get_jwt_identity()
         result, status_code = AuthService.get_users_by_role(admin_user_id=admin_id, role=role)
@@ -418,7 +426,7 @@ def update_user_status():
         return error_response("Failed to update user status.", 500)
 
 
-@auth_bp.route("/sellers/<seller_profile_id>/verify", methods=["PUT"])
+@auth_bp.route("/sellers/<seller_profile_id>/verify", methods=["PUT", "OPTIONS"])
 @jwt_required()
 @roles_required("admin")
 def verify_seller(seller_profile_id):
@@ -431,6 +439,10 @@ def verify_seller(seller_profile_id):
             "reason": "string"   // required when action is reject
         }
     """
+
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+    
     try:
         body = request.get_json() or {}
         action = body.get("action")

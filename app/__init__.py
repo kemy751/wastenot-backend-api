@@ -3,6 +3,7 @@ Flask application factory and initialization.
 """
 
 import logging
+import os
 from flask import Flask, request
 from flask_cors import CORS
 from app.config import get_config
@@ -23,10 +24,18 @@ def create_app(config_name=None):
     Returns:
         Configured Flask app instance
     """
-    # Create Flask app
+    # Resolve uploads/ at project root (one level above app/ package)
+    _upload_folder = os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'uploads')
+    )
+    os.makedirs(_upload_folder, exist_ok=True)
+
+    # Create Flask app — static_folder MUST be passed here, not set afterwards
     app = Flask(__name__,
                 template_folder="templates",
-                instance_relative_config=True)
+                instance_relative_config=True,
+                static_folder=_upload_folder,
+                static_url_path='/uploads')
     
     # Get and apply configuration
     if config_name:
@@ -37,7 +46,7 @@ def create_app(config_name=None):
         config = get_config()
     
     app.config.from_object(config)
-    
+    # ==============================================
     
     @app.before_request
     def handle_preflight():

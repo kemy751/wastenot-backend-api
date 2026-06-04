@@ -1,10 +1,13 @@
 # app/services.py
 import logging
 import uuid
+from sqlalchemy.orm import joinedload
 from typing import Union, List, Optional
 from datetime import datetime
+from sqlalchemy.orm import joinedload
 from app.extensions import db
-from app.models import Product, Listing, ListingInterest, User, ListingStatus, InterestStatus 
+from app.models import Product, Listing, ListingInterest, User, ListingStatus, InterestStatus
+from .green_sustainability import AdvancedGreenEngine 
 
 # Initialize module-specific logger
 logger = logging.getLogger(__name__)
@@ -16,9 +19,10 @@ IdType = Union[uuid.UUID, str]
 class ProductService:
     @staticmethod
     def create(data: dict) -> Product:
-        logger.info(f"Attempting to create product: {data.get('brand')} {data.get('model_name')}")
+        logger.info(f"Creating product: {data.get('brand')} {data.get('model_name')}")
         try:
             product = Product(**data)
+            product.estimated_carbon_saved_kg = AdvancedGreenEngine.calculate_product_impact(product)
             db.session.add(product)
             db.session.commit()
             logger.info(f"Successfully created product with ID: {product.id}")
@@ -79,7 +83,7 @@ class ProductService:
 class ListingService:
     @staticmethod
     def create(data: dict) -> Listing:
-        logger.info(f"Attempting to create listing for product ID {data.get('product_id')} by seller ID {data.get('seller_id')}")
+        logger.info(f"Creating listing for product ID {data.get('product_id')} by seller ID {data.get('seller_id')}")
         try:
             listing = Listing(**data)
             db.session.add(listing)
@@ -94,12 +98,18 @@ class ListingService:
     @staticmethod
     def get_by_id(listing_id: IdType) -> Optional[Listing]:
         logger.info(f"Fetching listing with ID: {listing_id}")
-        return db.session.get(Listing, str(listing_id))
+        return Listing.query.options(
+            joinedload(Listing.images),
+            joinedload(Listing.product)
+        ).filter_by(id=str(listing_id)).first()
 
     @staticmethod
     def get_all() -> List[Listing]:
         logger.info("Fetching all active listings")
-        return Listing.query.order_by(Listing.created_at.desc()).all()
+        return Listing.query.options(
+            joinedload(Listing.images),
+            joinedload(Listing.product)
+        ).order_by(Listing.created_at.desc()).all()
 
     @staticmethod
     def update(listing_id: IdType, data: dict) -> Optional[Listing]:
@@ -154,7 +164,7 @@ class ListingService:
             except KeyError:
                 logger.error(f"Invalid listing status filter string provided: {status}")
                 return []
-                
+        query = query.options(joinedload(Listing.images))        
         return query.order_by(Listing.created_at.desc()).all()
     
     @staticmethod
@@ -169,7 +179,10 @@ class ListingService:
             else:
                 status_enum = status
                 
-            return Listing.query.filter_by(status=status_enum)\
+            return Listing.query.options(
+                joinedload(Listing.images),
+                joinedload(Listing.product)
+            ).filter_by(status=status_enum)\
                                 .order_by(Listing.created_at.desc()).all()
         except KeyError:
             logger.error(f"Invalid listing status string provided: {status}")
