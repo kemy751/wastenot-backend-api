@@ -4,7 +4,7 @@ Flask application factory and initialization.
 
 import logging
 import os
-from flask import Flask, request
+from flask import Flask, app, request
 from flask_cors import CORS
 from app.config import get_config
 from app.extensions import db, jwt, migrate, mail
@@ -60,7 +60,8 @@ def create_app(config_name=None):
     mail.init_app(app)
 
     # Enable CORS for auth routes (adjust origin to your React dev server)
-    CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}}, supports_credentials=True)
+    frontend = app.config.get('FRONTEND_URL', 'http://localhost:5173')
+    CORS(app, resources={r"/*": {"origins": frontend}}, supports_credentials=True)
     
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/v1')
