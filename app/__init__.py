@@ -1,10 +1,6 @@
-"""
-Flask application factory and initialization.
-"""
-
 import logging
 import os
-from flask import Flask, request
+from flask import Flask, request, make_response
 from flask_cors import CORS
 from app.config import get_config
 from app.extensions import db, jwt, migrate, mail
@@ -33,37 +29,43 @@ def create_app(config_name=None):
 
     app.config.from_object(config)
 
-    # Initialize extensions
     db.init_app(app)
     jwt.init_app(app)
     migrate.init_app(app, db)
     mail.init_app(app)
 
-    # Build allowed origins — always include localhost + production frontend
     frontend = app.config.get('FRONTEND_URL', 'http://localhost:5173')
     allowed_origins = ['http://localhost:5173', 'http://localhost:3000']
     if frontend not in allowed_origins:
         allowed_origins.append(frontend)
 
-    # NO handle_preflight — Flask-CORS handles OPTIONS automatically
     CORS(app,
          origins=allowed_origins,
          supports_credentials=True,
          allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
          methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 
-    # Register blueprints
+    # Manually handle OPTIONS — Railway proxy sometimes blocks Flask-CORS from responding
+    @app.before_request
+    def handle_preflight():
+        if request.method == "OPTIONS":
+            origin = request.headers.get("Origin", "")
+            if origin in allowed_origins:
+                res = make_response("", 200)
+                res.headers["Access-Control-Allow-Origin"] = origin
+                res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+                res.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+                res.headers["Access-Control-Allow-Credentials"] = "true"
+                res.headers["Access-Control-Max-Age"] = "86400"
+                return res
+
     app.register_blueprint(auth_bp, url_prefix='/api/v1')
     app.register_blueprint(api_v1_bp, url_prefix='/api/v1')
     app.register_blueprint(payment_bp, url_prefix='/api/v1')
 
-    # Register event listeners
     register_event_listeners()
-
-    # Setup logging
     setup_logging(app)
 
-    # Create database tables
     with app.app_context():
         db.create_all()
 
