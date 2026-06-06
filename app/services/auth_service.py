@@ -289,6 +289,34 @@ class AuthService:
         }, 200
     
     @staticmethod
+    def update_profile(user_id, name=None, phone=None, email=None, **kwargs):
+        """Update user profile fields."""
+        user = db.session.get(User, user_id)
+        if not user:
+            raise ValueError("User not found")
+
+        if name is not None:
+            user.name = name.strip()
+        if phone is not None:
+            user.phone = phone.strip()
+        if email is not None and email.strip():
+            # Check email not taken by another user
+            existing = User.query.filter(
+                User.email == email.strip(),
+                User.id != user_id
+            ).first()
+            if existing:
+                raise ValueError("Email already in use")
+            user.email = email.strip()
+
+        db.session.commit()
+        logger.info(f"Profile updated for user: {user.email}")
+        return {
+            "message": "Profile updated successfully",
+            "data": user.to_dict(),
+        }, 200
+
+    @staticmethod
     def get_pending_users():
         """Get all users pending approval."""
         pending_users = User.query.filter_by(
