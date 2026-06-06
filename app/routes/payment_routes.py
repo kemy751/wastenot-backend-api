@@ -168,6 +168,16 @@ def resolve_dispute(dispute_id):
         return jsonify({"error": str(e)}), 400
 
 
+# ── GET /admin/disputes  — all open disputes ─────────────────────────────────
+@payment_bp.route("/admin/disputes", methods=["GET"])
+@jwt_required()
+@roles_required(UserRole.ADMIN)
+def get_all_disputes():
+    from app.models.payment import PaymentDispute, DisputeStatus
+    disputes = PaymentDispute.query.order_by(PaymentDispute.created_at.desc()).all()
+    return jsonify([d.to_dict() for d in disputes]), 200
+
+
 # ── GET /admin/payments  — all platform payments ──────────────────────────────
 @payment_bp.route("/admin/payments", methods=["GET"])
 @jwt_required()

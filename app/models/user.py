@@ -36,6 +36,7 @@ class User(db.Model):
     expressed_interests = db.relationship("ListingInterest", back_populates="buyer", lazy=True)
 
     def to_dict(self):
+        sp = self.seller_profile
         return {
             "id": self.id,
             "name": self.name,
@@ -45,5 +46,12 @@ class User(db.Model):
             "phone": self.phone,
             "verification_reason": self.verification_reason,
             "created_at": self.created_at.isoformat(),
-            "seller_profile_id": self.seller_profile.id if self.seller_profile else None,
+            "seller_profile_id": sp.id if sp else None,
+            "seller_profile": {
+                "id":                    sp.id,
+                "address":               sp.address if hasattr(sp, "address") else None,
+                "selfie_url":            sp.selfie_url if hasattr(sp, "selfie_url") else None,
+                "national_id_front_url": sp.national_id_front_url if hasattr(sp, "national_id_front_url") else None,
+                "national_id_back_url":  sp.national_id_back_url if hasattr(sp, "national_id_back_url") else None,
+            } if sp else None,
         }

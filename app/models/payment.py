@@ -53,6 +53,8 @@ class Payment(db.Model):
                                 cascade="all, delete-orphan")
 
     def to_dict(self):
+        # Get the most recent dispute if any
+        latest_dispute = self.disputes[-1] if self.disputes else None
         return {
             "id":                  self.id,
             "listing_id":          self.listing_id,
@@ -72,6 +74,7 @@ class Payment(db.Model):
             ),
             "seller_name":         self.seller.name if self.seller else None,
             "buyer_name":          self.buyer.name  if self.buyer  else None,
+            "dispute":             latest_dispute.to_dict() if latest_dispute else None,
         }
 
 
@@ -101,5 +104,6 @@ class PaymentDispute(db.Model):
             "status":      self.status.value,
             "resolution":  self.resolution,
             "raised_at":   self.raised_at.isoformat(),
+            "created_at":  self.raised_at.isoformat(),  # alias for frontend consistency
             "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
         }
