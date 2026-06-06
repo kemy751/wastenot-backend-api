@@ -139,6 +139,15 @@ def get_listing(listing_id):
     listing = ListingService.get_by_id(listing_id)
     if not listing:
         return jsonify({"message": "Listing not found"}), 404
+    # Increment view count
+    try:
+        if hasattr(listing, 'views') and listing.views is not None:
+            listing.views = (listing.views or 0) + 1
+        else:
+            listing.views = 1
+        db.session.commit()
+    except Exception:
+        db.session.rollback()  # Don't fail the request if view tracking fails
     return jsonify(ListingSchema().dump(listing)), 200
 
 @listing_bp.route('/listings', methods=['GET'])

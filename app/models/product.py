@@ -98,6 +98,7 @@ class Listing(db.Model):
     is_working      = db.Column(db.Boolean, default=True, nullable=False)
     condition_notes = db.Column(db.Text, nullable=True)
     status          = db.Column(db.Enum(ListingStatus), default=ListingStatus.AVAILABLE, nullable=False)
+    views           = db.Column(db.Integer, default=0, nullable=False)
     created_at      = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     product   = db.relationship("Product", back_populates="listings")
