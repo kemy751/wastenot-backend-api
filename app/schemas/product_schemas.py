@@ -41,7 +41,13 @@ class ListingSchema(Schema):
         # Assumes your Listing model has a relationship named 'interests'
         # e.g., interests = db.relationship('ListingInterest', backref='listing')
         return len(obj.interests) if hasattr(obj, 'interests') else 0
-    created_at = fields.DateTime(dump_only=True)
+    created_at = fields.Method('fmt_listing_created_at', dump_only=True)
+    views = fields.Int(dump_only=True)
+
+    def fmt_listing_created_at(self, obj):
+        dt = obj.created_at
+        if not dt: return None
+        return (dt.isoformat() + 'Z') if dt.tzinfo is None else dt.isoformat()
 
 
 class ListingInterestSchema(Schema):
@@ -50,8 +56,18 @@ class ListingInterestSchema(Schema):
     buyer_id = fields.UUID(required=True)
     message = fields.Str(allow_none=True)
     status = fields.Enum(InterestStatus, by_value=True, load_default=InterestStatus.EXPRESSED)
-    created_at = fields.DateTime(dump_only=True)
-    updated_at = fields.DateTime(dump_only=True)
+    created_at = fields.Method('fmt_created_at', dump_only=True)
+    updated_at = fields.Method('fmt_updated_at', dump_only=True)
+
+    def fmt_created_at(self, obj):
+        dt = obj.created_at
+        if not dt: return None
+        return (dt.isoformat() + 'Z') if dt.tzinfo is None else dt.isoformat()
+
+    def fmt_updated_at(self, obj):
+        dt = obj.updated_at
+        if not dt: return None
+        return (dt.isoformat() + 'Z') if dt.tzinfo is None else dt.isoformat()
     
     # NESTED: This allows interest results to show full listing and carbon/product info
     listing = fields.Nested(ListingSchema, dump_only=True, exclude=["interest_count"])
