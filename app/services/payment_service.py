@@ -146,7 +146,10 @@ class PaymentService:
 
         # Check within 7-day window
         now = datetime.now(timezone.utc)
-        if payment.escrow_release_date and now > payment.escrow_release_date:
+        escrow_dt = payment.escrow_release_date
+        if escrow_dt and escrow_dt.tzinfo is None:
+            escrow_dt = escrow_dt.replace(tzinfo=timezone.utc)
+        if escrow_dt and now > escrow_dt:
             raise ValueError("The 7-day dispute window has closed for this payment")
 
         # No duplicate open disputes
