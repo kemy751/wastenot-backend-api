@@ -330,7 +330,7 @@ def get_listing_waitlist(listing_id):
     return jsonify(ListingInterestSchema().dump(interests, many=True)), 200
 
 
-@interest_bp.route('/interests/<uuid:interest_id>', methods=['PATCH'])
+@interest_bp.route('/interests/<uuid:interest_id>/update', methods=['PATCH'])
 @roles_required(UserRole.SELLER, UserRole.ADMIN)
 def patch_interest_status(interest_id):
     interest = ListingInterestService.get_by_id(interest_id)
@@ -349,7 +349,7 @@ def patch_interest_status(interest_id):
         allowed_updates = {"status": json_data.get("status")} 
         data = ListingInterestSchema().load(allowed_updates, partial=True)
         
-        updated_interest = ListingInterestService.update(interest_id, data)
+        updated_interest = ListingInterestService.update_specific_interest(interest_id, data)
         return jsonify(ListingInterestSchema().dump(updated_interest)), 200
     except ValidationError as err:
         return jsonify({"message": "Validation failed", "errors": err.messages}), 400
