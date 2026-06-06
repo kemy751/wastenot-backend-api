@@ -225,14 +225,45 @@ class ListingInterestService:
         if not interest:
             return None
         try:
+            new_status = None
             for key, value in data.items():
                 if key == "status":
                     if isinstance(value, str):
-                        setattr(interest, key, InterestStatus[value.upper()])
+                        new_status = InterestStatus[value.upper()]
+                        setattr(interest, key, new_status)
                     elif isinstance(value, InterestStatus):
+                        new_status = value
                         setattr(interest, key, value)
                 else:
                     setattr(interest, key, value)
+
+            # Sync listing status when interest status changes
+            if new_status is not None:
+                listing = db.session.get(Listing, str(interest.listing_id))
+                if listing:
+                    if new_status == InterestStatus.APPROVED:
+                        # Lock the listing — no more claims accepted
+                        listing.status = ListingStatus.PENDING_SALE
+                        # Cancel all other EXPRESSED interests for this listing
+                        other_interests = ListingInterest.query.filter(
+                            ListingInterest.listing_id == listing.id,
+                            ListingInterest.id != interest.id,
+                            ListingInterest.status == InterestStatus.EXPRESSED,
+                        ).all()
+                        for other in other_interests:
+                            other.status = InterestStatus.CANCELLED
+                    elif new_status == InterestStatus.CANCELLED:
+                        # If the approved interest is cancelled, revert listing to AVAILABLE
+                        if interest.status == InterestStatus.APPROVED or interest.status == InterestStatus.EXPRESSED:
+                            # Only revert if no other approved interest exists
+                            other_approved = ListingInterest.query.filter(
+                                ListingInterest.listing_id == listing.id,
+                                ListingInterest.id != interest.id,
+                                ListingInterest.status == InterestStatus.APPROVED,
+                            ).first()
+                            if not other_approved and listing.status == ListingStatus.PENDING_SALE:
+                                listing.status = ListingStatus.AVAILABLE
+
             db.session.commit()
             return interest
         except Exception as e:
