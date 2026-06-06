@@ -8,37 +8,17 @@ from app.models.product import (
     ElectronicType, ItemCondition, ListingStatus, InterestStatus,
     Product, Listing, ListingInterest
 )
+from app.models.payment import Payment, PaymentStatus, PaymentDispute, DisputeStatus
 
-# 1. Import your enums AND the database model classes
-# (Change '.product_models' to your actual file name if it's different!)
-from app.models.product import (
-    ElectronicType, 
-    ItemCondition, 
-    ListingStatus, 
-    InterestStatus,
-    Product,          # <-- Added database model
-    Listing,          # <-- Added database model
-    ListingInterest   # <-- Added database model
-)
-
-# Backwards-compatible alias (some modules may still import DeliveryStaff)
+# Backwards-compatible aliases
 Seller = SellerProfile
 DeliveryStaff = SellerProfile
 
-# 2. Add the database model classes to your exposed members list
 __all__ = [
-    "User",
-    "UserRole",
-    "UserStatus",
-    "RefreshToken",
-    "ResetToken",
-    "Seller",
-    "DeliveryStaff",
-    "ElectronicType",
-    "ItemCondition",
-    "ListingStatus",
-    "InterestStatus",
-    "Product",          # <-- Exposed here
-    "Listing",          # <-- Exposed here
-    "ListingInterest",  # <-- Exposed here
+    "User", "UserRole", "UserStatus",
+    "RefreshToken", "ResetToken",
+    "SellerProfile", "Seller", "DeliveryStaff",
+    "ElectronicType", "ItemCondition", "ListingStatus", "InterestStatus",
+    "Product", "Listing", "ListingInterest",
+    "Payment", "PaymentStatus", "PaymentDispute", "DisputeStatus",
 ]

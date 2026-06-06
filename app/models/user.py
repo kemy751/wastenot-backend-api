@@ -45,4 +45,5 @@ class User(db.Model):
             "phone": self.phone,
             "verification_reason": self.verification_reason,
             "created_at": self.created_at.isoformat(),
+            "seller_profile_id": self.seller_profile.id if self.seller_profile else None,
         }
