@@ -1,10 +1,10 @@
 # seed_admins.py
+# Run this on Railway console: python3 seed_admins.py
 import os
 import sys
 from dotenv import load_dotenv
 load_dotenv()
 
-# Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import create_app
@@ -16,9 +16,26 @@ def seed_admins():
     app = create_app()
     with app.app_context():
         admins = [
-            {"name": "Admin One", "email": "admin1@wastenot.com", "password": "Admin123!", "phone": "1234567890"},
-            {"name": "Admin Two", "email": "admin2@wastenot.com", "password": "Admin123!", "phone": "0987654321"},
+            {
+                "name": "GreenTag Admin",
+                "email": "admin@greentag.com",
+                "password": "admin123",
+                "phone": "+256700000000",
+            },
+            {
+                "name": "Admin One",
+                "email": "admin1@greentag.com",
+                "password": "Admin123!",
+                "phone": "+256700000001",
+            },
+            {
+                "name": "Admin Two",
+                "email": "admin2@greentag.com",
+                "password": "Admin123!",
+                "phone": "+256700000002",
+            },
         ]
+
         for admin_data in admins:
             existing = User.query.filter_by(email=admin_data["email"]).first()
             if not existing:
@@ -32,11 +49,14 @@ def seed_admins():
                     phone=admin_data["phone"],
                 )
                 db.session.add(admin)
-                print(f"Created admin: {admin_data['email']}")
+                print(f"✅ Created admin: {admin_data['email']} / {admin_data['password']}")
             else:
-                print(f"Admin already exists: {admin_data['email']}")
+                print(f"ℹ️  Already exists: {admin_data['email']}")
+
         db.session.commit()
-        print("Admin seeding completed.")
+        print("\nDone. Admin accounts ready.")
+        print("\nLogin at: https://greentag.vercel.app/login")
+        print("Primary admin: admin@greentag.com / admin123")
 
 if __name__ == "__main__":
     seed_admins()
