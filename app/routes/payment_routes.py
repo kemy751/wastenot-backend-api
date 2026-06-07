@@ -15,13 +15,9 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
 
 def _save_photo(file) -> str:
-    """Save pickup proof photo and return relative URL."""
-    ext = file.filename.rsplit(".", 1)[-1].lower()
-    name = f"pickup_{uuid.uuid4().hex}.{ext}"
-    folder = os.path.join(current_app.config.get("UPLOAD_FOLDER", "uploads"), "pickups")
-    os.makedirs(folder, exist_ok=True)
-    file.save(os.path.join(folder, name))
-    return f"/uploads/pickups/{name}"
+    """Upload pickup proof photo to Cloudinary and return secure URL."""
+    from app.utils.cloudinary_helper import upload_file
+    return upload_file(file, folder="greentag/pickups")
 
 
 # ── POST /payments  — buyer initiates payment after QR scan ──────────────────

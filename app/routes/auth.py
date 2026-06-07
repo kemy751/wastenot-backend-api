@@ -35,20 +35,9 @@ def _allowed_file(filename: str) -> bool:
 
 
 def _save_file(file, subfolder: str) -> str:
-    """
-    Save an uploaded FileStorage object to disk and return the public URL path.
-
-    Swap this function out for a Cloudinary / S3 upload if needed — the rest
-    of the route stays the same.
-    """
-    ext = file.filename.rsplit(".", 1)[1].lower()
-    unique_name = f"{uuid.uuid4().hex}.{ext}"
-    folder = os.path.join(KYC_UPLOAD_FOLDER, subfolder)
-    os.makedirs(folder, exist_ok=True)
-    save_path = os.path.join(folder, unique_name)
-    file.save(save_path)
-    # Return as a URL path the frontend / storage layer can access
-    return f"/{save_path}"
+    """Upload file to Cloudinary and return secure URL."""
+    from app.utils.cloudinary_helper import upload_file
+    return upload_file(file, folder=f"greentag/kyc/{subfolder}")
 
 
 # ---------------------------------------------------------------------------

@@ -216,9 +216,8 @@ def upload_listing_images(listing_id):
             continue
         filename = secure_filename(file.filename)
         unique_name = f"{uuid.uuid4().hex}_{filename}"
-        save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_name)
-        file.save(save_path)
-        image_url = f"/uploads/{unique_name}"
+        from app.utils.cloudinary_helper import upload_file
+        image_url = upload_file(file, folder="greentag/listings")
         listing_image = ListingImage(
             listing_id=listing.id,
             image_url=image_url,
